@@ -44,44 +44,56 @@ public class Simulator {
 	static Timer timer;
 	static int fps = 60;
 	static AtomicInteger sim_speed;
-	static boolean optimize_speed = true;
+	static boolean optimize_speed = false;
 
 	public static void main(String[] args) {
-		// TODO Auto-generated method stub
 		
+		// On commence par faire la fenetre à partir d'informations de l'utilisateur
 		JFrame window = new JFrame();
 		window.setSize(resX+16, resY+39);
 		window.setTitle("N-body simulator");
-//		window.setVisible(true);
 		try {
 			N = Integer.parseInt(JOptionPane.showInputDialog(window, "Number of particles to simulate"));
 		} catch (NumberFormatException e) {
 			JOptionPane.showMessageDialog(window, "Invalid input, defaulting to N = "+N, "Invalid Input", JOptionPane.ERROR_MESSAGE);
 		}
 		
-		threads = new Thread[N];		
+		// Puis on crée les objets utiles :
+		// Tableau de threads, un par point
+		threads = new Thread[N];
+		// Nombre de frames calculées gardées en mémoire : permet un affichage fluide
 		buffer_frame = new AtomicLong(0);
+		// 
 		view_frame = new AtomicLong(0);
+		// Booléen pour alerter les threads d'un arrêt venu de l'utilisateur
 		threadcontinue = new AtomicBoolean(true);
-		threadsync = new Lock();		
+		// Le Lock sert à faire attendre les threads les uns entre eux, qu'un état soit complètement calculé avant de passer au calcul du suivant
+		threadsync = new Lock();
+		// Le buffer absorbe les points et choisit le rythme auquel les envoyer à l'affichage
 		buffer = pointsGen(buffer_size, N);
+		// Tableau des  infos par particules (masses, charge, etc)
 		dataTab = new float[N][number_of_forces];
+		// Tableau des couleurs (pour l'affichage)
 		colorTab = new Color[N];
+		// Vitesse de la simulation : des frames sont sautées pour l'affichage
 		sim_speed = new AtomicInteger(1);
 		
+		// Génération des couleurs
 		Random r = new Random();
 		for (int i = 0; i<N; i++) {
 			dataTab[i][0] = 10;
 			colorTab[i] = new Color(0.5f+(r.nextFloat())/2, 0.5f+(r.nextFloat())/2, 0.5f+(r.nextFloat())/2);
 		}
-//		Thread surface = new Thread(new Surface(window));
+		
 		Surface surface = new Surface(window);
+		
+		// Création des threads, associés à une particule
 		for(int i = 0; i<N; i++) {
 			threads[i] = new Thread(new ParticleTask(i));
 			threads[i].start();
 		}
-
-//		surface.start();
+		
+		
 		ActionListener taskperformer = new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				synchronized (Simulator.view_frame) {
@@ -99,7 +111,6 @@ public class Simulator {
 			try {
 				TimeUnit.SECONDS.sleep(1);
 			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
@@ -112,6 +123,7 @@ public class Simulator {
 	}
 	
 	private static Buffer pointsGen(int size, int N) {
+		// Fonction qui permet de générer un buffer avec les points à des positions aléatoires
 		Buffer res = new Buffer();
 		Random rn = new Random();
 		for (int i = 0; i<N; i++) {
@@ -120,116 +132,8 @@ public class Simulator {
 			res.write(0, i, "vx", 2*(rn.nextDouble()-.5));
 			res.write(0, i, "vy", 2*(rn.nextDouble()-.5));
 			
-		}
-//		res.write(0, 0, "x", 125);
-//		res.write(0, 0, "y", 100);
-//		res.write(0, 0, "vy", .5);
-//
-//		res.write(0, 1, "x", 100);
-//		res.write(0, 1, "y", 100);
-//		res.write(0, 1, "vy", -.5);
-		
-		
+		}		
 		return res;
 	}
 
 }
-
-@SuppressWarnings("serial")
-class Surface extends JPanel implements Runnable{
-	static int diam;
-	
-	public Surface(JFrame window) {
-		window.add(this);
-		window.setVisible(true);
-		diam = Simulator.rad << 1;
-		setBackground(Color.BLACK);
-		
-	}
-	
-	void doDrawing(Graphics g) {
-		Graphics2D g2d = (Graphics2D) g;
-		g2d.setColor(Color.WHITE);
-		g2d.drawString("Current frame : " + Simulator.view_frame.get(), 10, 30);
-		g2d.drawString("Buffer health : " + (Simulator.buffer_frame.get()-Simulator.view_frame.get()), 10, 60);
-		g2d.drawString("Simulation speed : " + Simulator.sim_speed.get(), 10, 90);
-		for (int i = 0; i < Simulator.N; i++) {
-			int x = (int) (Simulator.resX*Simulator.buffer.read(Simulator.view_frame.get(), i, "x")/Simulator.dimX);
-			int y = (int) (Simulator.resY*Simulator.buffer.read(Simulator.view_frame.get(), i, "y")/Simulator.dimY);
-			g2d.setColor(Simulator.colorTab[i]);
-			g2d.fillOval(x-Simulator.rad, y-Simulator.rad, diam, diam);
-		}
-	}
-	
-	@Override
-	public void paintComponent(Graphics g) {
-		super.paintComponent(g);
-		doDrawing(g);
-	}
-	
-	public void newFrame() {
-		this.repaint();
-		this.revalidate();
-	}
-	
-	public void run() {
-		while (Simulator.threadcontinue.get()) {
-			try {
-				TimeUnit.MILLISECONDS.sleep(15);
-			} catch (InterruptedException e1) {
-				// TODO Auto-generated catch block
-				e1.printStackTrace();
-			}
-			synchronized (Simulator.view_frame) {
-				if ((Simulator.buffer_frame.get() - Simulator.view_frame.incrementAndGet()) < (int) (Simulator.buffer_size/2)) {
-					try {
-						Simulator.view_frame.wait();
-					} catch (InterruptedException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-				}
-				newFrame();
-				Simulator.view_frame.notifyAll();
-			}
-		}
-	}
-}
-
-
-class Buffer{
-	
-	Double[][][] buff;
-	
-	public Buffer() {
-		buff = new Double[Simulator.buffer_size][Simulator.N][4];
-	}
-	
-	public void write(long cur_frame, int pointID, String attribute, double value) {
-		cur_frame = cur_frame % Simulator.buffer_size;
-		int buffpos = (int) cur_frame;
-		switch (attribute) {
-			case "x": 	buff[buffpos][pointID][0] = value;
-						break;
-			case "y": 	buff[buffpos][pointID][1] = value;
-						break;
-			case "vx":	buff[buffpos][pointID][2] = value;
-						break;
-			case "vy":	buff[buffpos][pointID][3] = value;
-						break;
-		}
-	}
-	
-	public double read(long cur_frame, int pointID, String attribute) {
-		cur_frame = cur_frame % Simulator.buffer_size;
-		int buffpos = (int) cur_frame;
-		switch (attribute) {
-			case "x": 	return buff[buffpos][pointID][0];
-			case "y": 	return buff[buffpos][pointID][1];
-			case "vx":	return buff[buffpos][pointID][2];
-		}
-		return buff[buffpos][pointID][3]; //case "vy"
-	}
-	
-}
-
