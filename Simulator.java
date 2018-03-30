@@ -93,7 +93,7 @@ public class Simulator {
 			threads[i].start();
 		}
 		
-		
+		// On utilise un évenement pour déclencher l'affichage à intervalles de temps précis
 		ActionListener taskperformer = new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				synchronized (Simulator.view_frame) {
@@ -104,9 +104,12 @@ public class Simulator {
 				}	
 			}
 		};
+		
+		//Le timer permet d'engendrer des événements pour déclencher l'affichage
 		timer = new Timer((int) 1/fps, taskperformer);
 		timer.start();
 		
+		//On vérifie toutes les secondes que la fenêtre n'a pas été fermée par l'utilisateur
 		while (window.isShowing()) {
 			try {
 				TimeUnit.SECONDS.sleep(1);
@@ -114,11 +117,11 @@ public class Simulator {
 				e.printStackTrace();
 			}
 		}
-
-		threadcontinue.set(false);
-		threadsync.flush();
-		timer.stop();
-		window.dispose();
+		//Ici, la fenêtre a été fermée
+		threadcontinue.set(false); //Le flag threadcontinue permet d'alerter tous les threads qu'il faut arrêter les calculs
+		threadsync.flush(); //On libère tous les threads du verrou threadsync afin qu'ils puissent terminer
+		timer.stop(); //On arrête la génération de l'affichage
+		window.dispose(); //On nettoie la fenêtre
 		
 	}
 	
