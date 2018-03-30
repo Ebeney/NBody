@@ -27,7 +27,7 @@ public class ParticleTask implements Runnable{
 				double x2 = Simulator.buffer.read(Simulator.buffer_frame.get(), i, "x");
 				double y2 = Simulator.buffer.read(Simulator.buffer_frame.get(), i, "y");
 				
-				//Adding acceleration due to force (add new force here)
+				//An ajoute l'accélération due à la force (c'est ici qu'il est aisé de rajouter une nouvelle force)
 				double massinvcubedist = Simulator.dataTab[i][0]*Math.pow(Math.pow(x2-x, 2) + Math.pow(y2-y, 2), -1.5);
 				ax = ax + massinvcubedist*(x2-x);
 				ay = ay + massinvcubedist*(y2-y);
@@ -40,6 +40,9 @@ public class ParticleTask implements Runnable{
 			Simulator.buffer.write(nextframe, ID, "y", y+Simulator.timeIncrement*vy);
 			Simulator.buffer.write(nextframe, ID, "vx", vx+Simulator.timeIncrement*ax);
 			Simulator.buffer.write(nextframe, ID, "vy", vy+Simulator.timeIncrement*ay);
+			
+			//On signale à tous les autres threads que l'on vient de terminer le calcul pour cette frame
+			//On attend que tous les threads soient à jour sur cette frame
 			Simulator.threadsync.attempt();
 		}
 	}

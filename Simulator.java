@@ -1,6 +1,4 @@
 import java.awt.Color;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.Random;
@@ -11,7 +9,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
-import javax.swing.JPanel;
 import javax.swing.Timer;
 
 public class Simulator {
@@ -44,8 +41,11 @@ public class Simulator {
 	static Timer timer;
 	static int fps = 60;
 	static AtomicInteger sim_speed;
-	static boolean optimize_speed = false;
-
+	
+	//Alt�re dynamiquement la vitesse de lecture du buffer	
+	//Permet de lire aussi vite que possible
+	static boolean optimize_speed = true; 
+	
 	public static void main(String[] args) {
 		
 		// On commence par faire la fenetre à partir d'informations de l'utilisateur
@@ -58,7 +58,7 @@ public class Simulator {
 			JOptionPane.showMessageDialog(window, "Invalid input, defaulting to N = "+N, "Invalid Input", JOptionPane.ERROR_MESSAGE);
 		}
 		
-		// Puis on crée les objets utiles :
+		// Puis on cree les objets utiles :
 		// Tableau de threads, un par point
 		threads = new Thread[N];
 		// Nombre de frames calculées gardées en mémoire : permet un affichage fluide
@@ -75,10 +75,10 @@ public class Simulator {
 		dataTab = new float[N][number_of_forces];
 		// Tableau des couleurs (pour l'affichage)
 		colorTab = new Color[N];
-		// Vitesse de la simulation : des frames sont sautées pour l'affichage
+		// Vitesse de la simulation : des frames sont sautees par l'affichage
 		sim_speed = new AtomicInteger(1);
 		
-		// Génération des couleurs
+		// Generation des couleurs
 		Random r = new Random();
 		for (int i = 0; i<N; i++) {
 			dataTab[i][0] = 10;
@@ -87,20 +87,21 @@ public class Simulator {
 		
 		Surface surface = new Surface(window);
 		
-		// Création des threads, associés à une particule
+		// Creation des threads, associes à une particule
 		for(int i = 0; i<N; i++) {
 			threads[i] = new Thread(new ParticleTask(i));
 			threads[i].start();
 		}
 		
-		// On utilise un évenement pour déclencher l'affichage à intervalles de temps précis
+		// On utilise un Evenement pour declencher l'affichage à intervalles de temps précis
 		ActionListener taskperformer = new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				synchronized (Simulator.view_frame) {
+					// si le buffer n'est pas au moins rempli � moiti�, on saute l'affichage de cette frame
 					if ((Simulator.buffer_frame.get() - Simulator.view_frame.get()) < (int) (Simulator.buffer_size/2)) return;
-					view_frame.getAndAdd(sim_speed.get());
-					surface.newFrame();
-					Simulator.view_frame.notifyAll();
+					view_frame.getAndAdd(sim_speed.get()); //On passe � la prochaine frame
+					surface.newFrame(); //On appelle la g�n�ration de la nouvelle frame
+					Simulator.view_frame.notifyAll(); //On notifie les threads du buffer �ventuellement bloqu�s par l'affichage
 				}	
 			}
 		};
